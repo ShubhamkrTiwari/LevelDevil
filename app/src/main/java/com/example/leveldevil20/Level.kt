@@ -7,7 +7,8 @@ class Level(
     val coins: MutableList<Coin>,
     private val enemies: List<Enemy>,
     private val spikes: List<Spike>,
-    private val hollowPlatforms: List<HollowPlatform>
+    private val hollowPlatforms: List<HollowPlatform>,
+    private val house: House
 ) {
 
     fun draw(canvas: Canvas) {
@@ -26,28 +27,19 @@ class Level(
         for (spike in spikes) {
             spike.draw(canvas)
         }
+        house.draw(canvas)
     }
 
-    fun update(scrollSpeed: Int) {
-        for (p in platforms) {
-            p.x -= scrollSpeed
-        }
-        for (hp in hollowPlatforms) {
-            hp.x -= scrollSpeed
-        }
-        for (c in coins) {
-            c.x -= scrollSpeed
-        }
-        for (e in enemies) {
-            e.x -= scrollSpeed
-        }
-        for (s in spikes) {
-            s.x -= scrollSpeed
-        }
+    fun update() {
+        // No-op
     }
 
     fun getPlatforms(): List<Platform> {
         return platforms
+    }
+
+    fun getHollowPlatforms(): List<HollowPlatform> {
+        return hollowPlatforms
     }
 
     fun getEnemies(): List<Enemy> {
@@ -56,5 +48,9 @@ class Level(
 
     fun getSpikes(): List<Spike> {
         return spikes
+    }
+
+    fun getHouse(): House {
+        return house
     }
 }

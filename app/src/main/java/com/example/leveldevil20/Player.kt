@@ -8,36 +8,55 @@ import android.graphics.Rect
 class Player(var x: Int, var y: Int, var size: Int) {
     private val startX = x
     private val startY = y
-    private val bodyPaint = Paint()
-    private val headPaint = Paint()
-    private val eyePaint = Paint()
+    private val paint = Paint().apply {
+        color = Color.BLACK
+    }
     private var velocityY = 0
-    private var velocityX = 0 // Added for horizontal movement
-    private val moveSpeed = 10 // Speed of horizontal movement
+    private var velocityX = 0
+    private val moveSpeed = 10
     private val gravity = 2
     private val jumpForce = -30
     private var isJumping = false
+    private var walkCycle = 0
 
     val rect: Rect
         get() = Rect(x, y, x + size, y + size)
 
-    init {
-        bodyPaint.color = Color.rgb(0, 150, 255) // Blue body
-        headPaint.color = Color.rgb(255, 200, 0) // Yellow head
-        eyePaint.color = Color.BLACK
-    }
-
     fun draw(canvas: Canvas) {
-        // Draw body
-        canvas.drawRect(rect, bodyPaint)
+        val totalHeight = size * 1.5f
+        val headRatio = 0.25f
+        val legRatio = 0.4f
 
-        // Draw head (a circle)
-        val headRadius = size / 2
-        canvas.drawCircle((x + size / 2).toFloat(), (y - headRadius).toFloat(), headRadius.toFloat(), headPaint)
+        val headHeight = totalHeight * headRatio
+        val bodyHeight = totalHeight * (1 - headRatio - legRatio)
+        val legHeight = totalHeight * legRatio
 
-        // Draw eye
-        val eyeRadius = headRadius / 4
-        canvas.drawCircle((x + size / 2 + headRadius / 2).toFloat(), (y - headRadius).toFloat(), eyeRadius.toFloat(), eyePaint)
+        val headWidth = size * 0.7f
+        val bodyWidth = size.toFloat()
+        val legWidth = size * 0.45f
+
+        val adjustedY = y - (totalHeight - size)
+
+        // Head
+        val headX = x + (size - headWidth) / 2
+        canvas.drawRect(headX, adjustedY, headX + headWidth, adjustedY + headHeight, paint)
+
+        // Body
+        val bodyY = adjustedY + headHeight
+        canvas.drawRect(x.toFloat(), bodyY, x + bodyWidth, bodyY + bodyHeight, paint)
+
+        // Legs
+        val legY = bodyY + bodyHeight
+        val isMoving = velocityX != 0
+
+        if (isMoving) {
+            val legMovement = (Math.sin(walkCycle * (Math.PI / 10)) * size * 0.2f).toFloat()
+            canvas.drawRect(x.toFloat(), legY, x + legWidth, legY + legHeight - legMovement, paint)
+            canvas.drawRect(x + bodyWidth - legWidth, legY, x + bodyWidth, legY + legHeight + legMovement, paint)
+        } else {
+            canvas.drawRect(x.toFloat(), legY, x + legWidth, legY + legHeight, paint)
+            canvas.drawRect(x + bodyWidth - legWidth, legY, x + bodyWidth, legY + legHeight, paint)
+        }
     }
 
     fun jump() {
@@ -47,7 +66,6 @@ class Player(var x: Int, var y: Int, var size: Int) {
         }
     }
 
-    // New methods for horizontal movement
     fun moveLeft() {
         velocityX = -moveSpeed
     }
@@ -60,22 +78,39 @@ class Player(var x: Int, var y: Int, var size: Int) {
         velocityX = 0
     }
 
-
     fun update() {
-        // Horizontal movement
         x += velocityX
-
-        // Vertical movement
         velocityY += gravity
         y += velocityY
+
+        if (velocityX != 0) {
+            walkCycle = (walkCycle + 1) % 20
+        } else {
+            walkCycle = 0
+        }
     }
 
-    fun handleCollision(platforms: List<Platform>, coins: MutableList<Coin>, enemies: List<Enemy>, spikes: List<Spike>): Int {
+    fun reset() {
+        x = startX
+        y = startY
+        velocityY = 0
+        velocityX = 0
+    }
+
+    fun handleCollision(
+        platforms: List<Platform>,
+        coins: MutableList<Coin>,
+        enemies: List<Enemy>,
+        spikes: List<Spike>,
+        hollowPlatforms: List<HollowPlatform>,
+        house: House
+    ): Pair<Int, Boolean> {
         var coinsCollected = 0
-        // Platform collision
+        var isGameOver = false
+
         for (platform in platforms) {
-            if (Rect.intersects(rect, platform.rect)) {
-                if (velocityY > 0) {
+            if (rect.intersect(platform.rect)) {
+                if (velocityY > 0 && rect.bottom > platform.rect.top) {
                     y = platform.rect.top - size
                     velocityY = 0
                     isJumping = false
@@ -83,35 +118,32 @@ class Player(var x: Int, var y: Int, var size: Int) {
             }
         }
 
-        // Coin collision
+        for (hollowPlatform in hollowPlatforms) {
+            if (rect.intersect(hollowPlatform.rect)) {
+                isGameOver = true
+            }
+        }
+
         val coinIterator = coins.iterator()
         while (coinIterator.hasNext()) {
-            val coin = coinIterator.next()
-            if (Rect.intersects(rect, coin.rect)) {
+            if (rect.intersect(coinIterator.next().rect)) {
                 coinIterator.remove()
                 coinsCollected++
             }
         }
 
-        // Enemy collision
         for (enemy in enemies) {
-            if (Rect.intersects(rect, enemy.rect)) {
-                // Reset player position
-                x = startX
-                y = startY
-                velocityY = 0
+            if (rect.intersect(enemy.rect)) {
+                isGameOver = true
             }
         }
 
-        // Spike collision
         for (spike in spikes) {
-            if (Rect.intersects(rect, spike.rect)) {
-                // Reset player position
-                x = startX
-                y = startY
-                velocityY = 0
+            if (rect.intersect(spike.rect)) {
+                isGameOver = true
             }
         }
-        return coinsCollected
+
+        return Pair(coinsCollected, isGameOver)
     }
 }
