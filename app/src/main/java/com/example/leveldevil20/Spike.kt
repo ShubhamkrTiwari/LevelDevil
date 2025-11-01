@@ -7,9 +7,8 @@ import android.graphics.Path
 import android.graphics.Rect
 
 class Spike(var x: Int, var y: Int, var width: Int, var height: Int) {
-
-    private val spikePaint = Paint().apply {
-        color = Color.GRAY
+    private val paint = Paint().apply {
+        color = Color.rgb(205, 92, 92) // Reddish-orange color to match the background
         style = Paint.Style.FILL
     }
 
@@ -22,6 +21,6 @@ class Spike(var x: Int, var y: Int, var width: Int, var height: Int) {
         path.lineTo((x + width / 2).toFloat(), y.toFloat())
         path.lineTo((x + width).toFloat(), (y + height).toFloat())
         path.close()
-        canvas.drawPath(path, spikePaint)
+        canvas.drawPath(path, paint)
     }
 }

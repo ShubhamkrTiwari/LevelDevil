@@ -18,39 +18,43 @@ class LevelManager {
         for (i in 0 until 50) {
             val platforms = mutableListOf<Platform>()
             val spikes = mutableListOf<Spike>()
-            var currentX = 0
-            var lastY = 500
+            val suddenSpikes = mutableListOf<SuddenSpike>()
 
-            // Start platform
-            platforms.add(Platform(currentX, lastY, 200, 100))
-            currentX += 200
+            // Base room structure
+            val roomWidth = 800 + i * 10
+            val roomHeight = 300 + i * 5
+            val roomX = 100
+            val roomY = 200
 
-            val platformCount = 2 + i / 8 // Increase platform count more quickly
-            for (j in 0 until platformCount) {
-                val gap = 80 + random.nextInt(100 + i * 3) // Wider and more varied gaps
-                currentX += gap
+            platforms.add(Platform(roomX, roomY, roomWidth, roomHeight)) // Main playable area
 
-                val yChange = random.nextInt(100 + i * 2) - (50 + i) // More aggressive vertical changes
-                var newY = lastY + yChange
-                if (newY > 550) newY = 550 // Platforms can go a bit lower
-                if (newY < 300) newY = 300 // And a bit higher
-                lastY = newY
-
-                val width = Math.max(80, 250 - i * 4) // Platforms can get narrower
-                platforms.add(Platform(currentX, newY, width, 100))
-
-                // Add spikes with increasing frequency and more varied placement
-                if (i > 3 && random.nextInt(100) < i * 2.5) {
-                    val spikeX = currentX + random.nextInt(Math.max(1, width - 50))
-                    spikes.add(Spike(spikeX, newY - 50, 50, 50))
-                }
-
-                currentX += width
+            // Add internal walls and passages that get more complex with each level
+            val wallCount = i / 5
+            for (j in 0..wallCount) {
+                val wallX = roomX + 100 + random.nextInt(roomWidth - 200)
+                val wallY = roomY + random.nextInt(roomHeight - 100)
+                val wallWidth = 50 + random.nextInt(100)
+                val wallHeight = 50 + random.nextInt(50)
+                platforms.add(Platform(wallX, wallY, wallWidth, wallHeight))
             }
 
-            val lastPlatform = platforms.last()
-            val house = House(lastPlatform.x + lastPlatform.width / 2 - 50, lastPlatform.y - 100, 100, 100)
-            loadedLevels.add(Level(platforms, mutableListOf(), listOf(), spikes, listOf(), house))
+            // Add spikes with increasing difficulty
+            if (i > 2) {
+                for (k in 0 until i / 3) {
+                    val spikeX = roomX + 50 + random.nextInt(roomWidth - 100)
+                    val spikeY = roomY + roomHeight - 20 // Place spikes on the floor
+                    spikes.add(Spike(spikeX, spikeY, 20, 20))
+                }
+            }
+            if(i > 5) {
+                 for (k in 0 until i / 6) {
+                    val spikeX = roomX + 50 + random.nextInt(roomWidth - 100)
+                    suddenSpikes.add(SuddenSpike(spikeX, roomY, 20, 20, 30, 30)) // Place sudden spikes on the ceiling
+                }
+            }
+
+            val door = Door(roomX + roomWidth - 70, roomY + roomHeight - 70, 50, 50)
+            loadedLevels.add(Level(platforms, spikes, suddenSpikes, door))
         }
 
         return loadedLevels

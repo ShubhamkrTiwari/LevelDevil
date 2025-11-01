@@ -13,9 +13,9 @@ class Player(var x: Int, var y: Int, var size: Int) {
     }
     private var velocityY = 0
     private var velocityX = 0
-    private val moveSpeed = 10
+    private val moveSpeed = 8
     private val gravity = 2
-    private val jumpForce = -30
+    private val jumpForce = -25
     private var isJumping = false
     private var walkCycle = 0
 
@@ -99,13 +99,10 @@ class Player(var x: Int, var y: Int, var size: Int) {
 
     fun handleCollision(
         platforms: List<Platform>,
-        coins: MutableList<Coin>,
-        enemies: List<Enemy>,
         spikes: List<Spike>,
-        hollowPlatforms: List<HollowPlatform>,
-        house: House
-    ): Pair<Int, Boolean> {
-        var coinsCollected = 0
+        suddenSpikes: List<SuddenSpike>,
+        door: Door?
+    ): Boolean {
         var isGameOver = false
 
         for (platform in platforms) {
@@ -118,32 +115,18 @@ class Player(var x: Int, var y: Int, var size: Int) {
             }
         }
 
-        for (hollowPlatform in hollowPlatforms) {
-            if (rect.intersect(hollowPlatform.rect)) {
-                isGameOver = true
-            }
-        }
-
-        val coinIterator = coins.iterator()
-        while (coinIterator.hasNext()) {
-            if (rect.intersect(coinIterator.next().rect)) {
-                coinIterator.remove()
-                coinsCollected++
-            }
-        }
-
-        for (enemy in enemies) {
-            if (rect.intersect(enemy.rect)) {
-                isGameOver = true
-            }
-        }
-
         for (spike in spikes) {
             if (rect.intersect(spike.rect)) {
                 isGameOver = true
             }
         }
 
-        return Pair(coinsCollected, isGameOver)
+        for (spike in suddenSpikes) {
+            if (spike.isVisible && rect.intersect(spike.rect)) {
+                isGameOver = true
+            }
+        }
+
+        return isGameOver
     }
 }

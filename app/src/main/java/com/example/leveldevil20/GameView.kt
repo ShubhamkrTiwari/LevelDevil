@@ -11,7 +11,6 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 
 enum class GameState {
-    LEVEL_SELECTION,
     PLAYING,
     GAME_OVER,
     GAME_COMPLETED
@@ -22,80 +21,37 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback 
     private var thread: GameThread? = null
     private val player: Player
     private val levelManager: LevelManager
-    private var score = 0
-    private val textPaint = Paint()
     private val gameOverPaint = Paint()
     private val gameCompletedPaint = Paint()
-    private val titlePaint = Paint()
-    private val firePaint = Paint()
-    private val pathPaint = Paint()
-    private val iconPaint = Paint()
+    private val uiPaint = Paint()
 
+    // UI Rects
+    private lateinit var backButtonRect: Rect
+    private lateinit var resetButtonRect: Rect
     private lateinit var leftButtonRect: Rect
     private lateinit var rightButtonRect: Rect
     private lateinit var jumpButtonRect: Rect
-    private lateinit var nextButtonRect: Rect
-    private lateinit var prevButtonRect: Rect
 
-    private var gameState = GameState.LEVEL_SELECTION
-    private var levelSelectionButtons = mutableListOf<LevelSelectionButton>()
-    private var currentPage = 0
-    private val levelsPerPage = 12
+    private var gameState = GameState.PLAYING
+    private var lives = 5
 
     private var leftPointerId = -1
     private var rightPointerId = -1
 
     init {
         holder.addCallback(this)
-        player = Player(150, 400, 50)
+        player = Player(150, 450, 25)
         levelManager = LevelManager()
 
-        textPaint.color = Color.BLACK
-        textPaint.textSize = 40f
-
-        iconPaint.color = Color.DKGRAY
-        iconPaint.style = Paint.Style.STROKE
-        iconPaint.strokeWidth = 10f
-
-        titlePaint.color = Color.rgb(139, 0, 0)
-        titlePaint.textSize = 120f
-        titlePaint.textAlign = Paint.Align.CENTER
-
-        firePaint.color = Color.rgb(139, 0, 0)
-        firePaint.style = Paint.Style.FILL
-
-        pathPaint.color = Color.BLACK
-        pathPaint.style = Paint.Style.STROKE
-        pathPaint.strokeWidth = 8f
-
-        gameOverPaint.color = Color.RED
-        gameOverPaint.textSize = 100f
+        gameOverPaint.color = Color.WHITE
+        gameOverPaint.textSize = 80f
         gameOverPaint.textAlign = Paint.Align.CENTER
 
         gameCompletedPaint.color = Color.GREEN
-        gameCompletedPaint.textSize = 100f
+        gameCompletedPaint.textSize = 80f
         gameCompletedPaint.textAlign = Paint.Align.CENTER
 
-        createLevelSelectionButtons()
-    }
-
-    private fun createLevelSelectionButtons() {
-        levelSelectionButtons.clear()
-        val buttonWidth = 40
-        val buttonHeight = 40
-        val positions = arrayOf(
-            Pair(80, 300), Pair(200, 360), Pair(320, 300), Pair(440, 360), Pair(560, 300), Pair(680, 250),
-            Pair(800, 300), Pair(920, 360), Pair(800, 420), Pair(680, 470), Pair(560, 420), Pair(440, 470)
-        )
-
-        val startLevel = currentPage * levelsPerPage
-        for (i in 0 until levelsPerPage) {
-            val levelIndex = startLevel + i
-            if (levelIndex < levelManager.getLevelCount()) {
-                val pos = positions[i]
-                levelSelectionButtons.add(LevelSelectionButton(levelIndex, pos.first, pos.second, buttonWidth, buttonHeight))
-            }
-        }
+        uiPaint.color = Color.BLACK
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
@@ -105,14 +61,17 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback 
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-        val buttonSize = 120
-        val bottomMargin = 20
-        leftButtonRect = Rect(100, height - buttonSize - bottomMargin, 100 + buttonSize, height - bottomMargin)
-        rightButtonRect = Rect(250, height - buttonSize - bottomMargin, 250 + buttonSize, height - bottomMargin)
-        jumpButtonRect = Rect(width - 220, height - buttonSize - bottomMargin, width - 100, height - bottomMargin)
+        // Top UI buttons
+        backButtonRect = Rect(20, 20, 100, 100)
+        resetButtonRect = Rect(120, 20, 200, 100)
 
-        nextButtonRect = Rect(width - 200, height - 100, width - 50, height - 20)
-        prevButtonRect = Rect(50, height - 100, 200, height - 20)
+        // Bottom control buttons
+        val buttonWidth = 180
+        val buttonHeight = 100
+        val bottomMargin = 20
+        leftButtonRect = Rect(50, height - buttonHeight - bottomMargin, 50 + buttonWidth, height - bottomMargin)
+        rightButtonRect = Rect(250, height - buttonHeight - bottomMargin, 250 + buttonWidth, height - bottomMargin)
+        jumpButtonRect = Rect(width - 50 - buttonWidth, height - buttonHeight - bottomMargin, width - 50, height - bottomMargin)
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -133,21 +92,24 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback 
             player.update()
             val level = levelManager.getCurrentLevel()
             level.update()
-            val (coinsCollected, isGameOver) = player.handleCollision(
-                level.getPlatforms(), level.coins, level.getEnemies(),
-                level.getSpikes(), level.getHollowPlatforms(), level.getHouse()
-            )
-            score += coinsCollected
+            val isGameOver = player.handleCollision(level.getPlatforms(), level.getSpikes(), level.getSuddenSpikes(), level.getDoor())
 
             if (isGameOver || player.y > height) {
-                gameState = GameState.GAME_OVER
-            }
-
-            if (Rect.intersects(player.rect, level.getHouse().rect)) {
-                if (!levelManager.nextLevel()) {
-                    gameState = GameState.GAME_COMPLETED
+                lives--
+                if (lives <= 0) {
+                    gameState = GameState.GAME_OVER
                 } else {
                     player.reset()
+                }
+            }
+
+            level.getDoor()?.let {
+                if (Rect.intersects(player.rect, it.rect)) {
+                    if (!levelManager.nextLevel()) {
+                        gameState = GameState.GAME_COMPLETED
+                    } else {
+                        player.reset()
+                    }
                 }
             }
         }
@@ -156,171 +118,169 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback 
     override fun draw(canvas: Canvas) {
         super.draw(canvas)
         when (gameState) {
-            GameState.LEVEL_SELECTION -> drawLevelSelectionScreen(canvas)
             GameState.PLAYING -> drawGame(canvas)
-            GameState.GAME_OVER -> {
-                drawGame(canvas)
-                drawGameOver(canvas)
-            }
-            GameState.GAME_COMPLETED -> {
-                drawGame(canvas)
-                drawGameCompleted(canvas)
-            }
+            GameState.GAME_OVER -> drawGameOver(canvas)
+            GameState.GAME_COMPLETED -> drawGameCompleted(canvas)
         }
-    }
-
-    private fun drawLevelSelectionScreen(canvas: Canvas) {
-        canvas.drawColor(Color.rgb(153, 153, 255)) // Light purple background
-        drawPaths(canvas)
-        for (button in levelSelectionButtons) {
-            button.draw(canvas, button.levelIndex == levelManager.currentLevelIndex)
-        }
-
-        if (currentPage > 0) {
-            canvas.drawText("Prev", 125f, height - 40f, textPaint)
-        }
-        if ((currentPage + 1) * levelsPerPage < levelManager.getLevelCount()) {
-            canvas.drawText("Next", width - 125f, height - 40f, textPaint)
-        }
-    }
-
-    private fun drawPaths(canvas: Canvas) {
-        val path = Path()
-        if (levelSelectionButtons.isNotEmpty()) {
-            val firstButton = levelSelectionButtons.first()
-            path.moveTo((firstButton.x + firstButton.width / 2).toFloat(), (firstButton.y + firstButton.height / 2).toFloat())
-        }
-        for (i in 0 until levelSelectionButtons.size - 1) {
-            val start = levelSelectionButtons[i]
-            val end = levelSelectionButtons[i + 1]
-            val midX = (start.x + end.x) / 2 + (if (i % 2 == 0) 60 else -60)
-            path.cubicTo(
-                (start.x + start.width / 2).toFloat(), (start.y + start.height / 2).toFloat(),
-                midX.toFloat(), ((start.y + end.y) / 2).toFloat(),
-                (end.x + end.width / 2).toFloat(), (end.y + end.height / 2).toFloat()
-            )
-        }
-        canvas.drawPath(path, pathPaint)
     }
 
     private fun drawGame(canvas: Canvas) {
+        canvas.drawColor(Color.rgb(205, 92, 92)) // Reddish-orange background
         val level = levelManager.getCurrentLevel()
-        canvas.drawColor(Color.rgb(153, 153, 255)) // Light purple background
         level.draw(canvas)
         player.draw(canvas)
-        drawControlIcons(canvas)
+        drawTopUI(canvas)
+        drawBottomControls(canvas)
     }
 
-    private fun drawControlIcons(canvas: Canvas) {
-        // Left arrow
+    private fun drawTopUI(canvas: Canvas) {
+        // Back Button
+        uiPaint.color = Color.rgb(139, 0, 0)
+        canvas.drawRect(backButtonRect, uiPaint)
+        uiPaint.color = Color.WHITE
+        val backPath = Path()
+        backPath.moveTo(backButtonRect.exactCenterX() + 15, backButtonRect.exactCenterY() - 25)
+        backPath.lineTo(backButtonRect.exactCenterX() - 15, backButtonRect.exactCenterY())
+        backPath.lineTo(backButtonRect.exactCenterX() + 15, backButtonRect.exactCenterY() + 25)
+        uiPaint.style = Paint.Style.STROKE
+        uiPaint.strokeWidth = 8f
+        canvas.drawPath(backPath, uiPaint)
+
+        // Reset Button
+        uiPaint.color = Color.rgb(139, 0, 0)
+        uiPaint.style = Paint.Style.FILL
+        canvas.drawRect(resetButtonRect, uiPaint)
+        uiPaint.color = Color.WHITE
+        uiPaint.strokeWidth = 8f
+        uiPaint.style = Paint.Style.STROKE
+        canvas.drawArc(Rect(resetButtonRect.left + 20, resetButtonRect.top + 20, resetButtonRect.right - 20, resetButtonRect.bottom - 20), 0f, 270f, false, uiPaint)
+        val resetArrow = Path()
+        resetArrow.moveTo(resetButtonRect.right - 20f, resetButtonRect.centerY().toFloat())
+        resetArrow.lineTo(resetButtonRect.right - 35f, resetButtonRect.centerY() - 15f)
+        resetArrow.lineTo(resetButtonRect.right - 35f, resetButtonRect.centerY() + 15f)
+        resetArrow.close()
+        uiPaint.style = Paint.Style.FILL
+        canvas.drawPath(resetArrow, uiPaint)
+
+
+        // Lives Counter
+        uiPaint.color = Color.BLACK
+        uiPaint.style = Paint.Style.FILL
+        val boxSize = 30
+        val spacing = 10
+        val startX = width / 2f - (5 * (boxSize + spacing)) / 2f
+        for (i in 0 until 5) {
+            if(i < lives) {
+                uiPaint.style = Paint.Style.FILL
+            } else {
+                uiPaint.style = Paint.Style.STROKE
+            }
+            canvas.drawRect(startX + i * (boxSize + spacing), 40f, startX + i * (boxSize + spacing) + boxSize, 40f + boxSize, uiPaint)
+        }
+    }
+
+    private fun drawBottomControls(canvas: Canvas) {
+        uiPaint.color = Color.BLACK
+        uiPaint.style = Paint.Style.STROKE
+        uiPaint.strokeWidth = 6f
+
+        // Left Button Shape
         val leftPath = Path()
-        leftPath.moveTo(leftButtonRect.exactCenterX() + 20, leftButtonRect.exactCenterY() - 30)
-        leftPath.lineTo(leftButtonRect.exactCenterX() - 20, leftButtonRect.exactCenterY())
-        leftPath.lineTo(leftButtonRect.exactCenterX() + 20, leftButtonRect.exactCenterY() + 30)
-        canvas.drawPath(leftPath, iconPaint)
+        leftPath.moveTo(leftButtonRect.left + 30f, leftButtonRect.top.toFloat())
+        leftPath.lineTo(leftButtonRect.right.toFloat(), leftButtonRect.top.toFloat())
+        leftPath.lineTo(leftButtonRect.right.toFloat(), leftButtonRect.bottom.toFloat())
+        leftPath.lineTo(leftButtonRect.left + 30f, leftButtonRect.bottom.toFloat())
+        leftPath.lineTo(leftButtonRect.left.toFloat(), leftButtonRect.centerY().toFloat())
+        leftPath.close()
+        canvas.drawPath(leftPath, uiPaint)
 
-        // Right arrow
+        // Right Button Shape
         val rightPath = Path()
-        rightPath.moveTo(rightButtonRect.exactCenterX() - 20, rightButtonRect.exactCenterY() - 30)
-        rightPath.lineTo(rightButtonRect.exactCenterX() + 20, rightButtonRect.exactCenterY())
-        rightPath.lineTo(rightButtonRect.exactCenterX() - 20, rightButtonRect.exactCenterY() + 30)
-        canvas.drawPath(rightPath, iconPaint)
+        rightPath.moveTo(rightButtonRect.left.toFloat(), rightButtonRect.top.toFloat())
+        rightPath.lineTo(rightButtonRect.right - 30f, rightButtonRect.top.toFloat())
+        rightPath.lineTo(rightButtonRect.right.toFloat(), rightButtonRect.centerY().toFloat())
+        rightPath.lineTo(rightButtonRect.right - 30f, rightButtonRect.bottom.toFloat())
+        rightPath.lineTo(rightButtonRect.left.toFloat(), rightButtonRect.bottom.toFloat())
+        rightPath.close()
+        canvas.drawPath(rightPath, uiPaint)
 
-        // Jump icon (up arrow)
+        // Jump Button Shape
         val jumpPath = Path()
-        jumpPath.moveTo(jumpButtonRect.exactCenterX() - 30, jumpButtonRect.exactCenterY() + 20)
-        jumpPath.lineTo(jumpButtonRect.exactCenterX(), jumpButtonRect.exactCenterY() - 20)
-        jumpPath.lineTo(jumpButtonRect.exactCenterX() + 30, jumpButtonRect.exactCenterY() + 20)
-        canvas.drawPath(jumpPath, iconPaint)
+        jumpPath.moveTo(jumpButtonRect.left.toFloat(), jumpButtonRect.bottom.toFloat())
+        jumpPath.lineTo(jumpButtonRect.left.toFloat(), jumpButtonRect.top + 30f)
+        jumpPath.lineTo(jumpButtonRect.centerX().toFloat(), jumpButtonRect.top.toFloat())
+        jumpPath.lineTo(jumpButtonRect.right.toFloat(), jumpButtonRect.top + 30f)
+        jumpPath.lineTo(jumpButtonRect.right.toFloat(), jumpButtonRect.bottom.toFloat())
+        jumpPath.close()
+        canvas.drawPath(jumpPath, uiPaint)
     }
 
     private fun drawGameOver(canvas: Canvas) {
+        drawGame(canvas)
         canvas.drawColor(Color.argb(150, 0, 0, 0))
         canvas.drawText("Game Over", (width / 2).toFloat(), (height / 2).toFloat(), gameOverPaint)
     }
 
     private fun drawGameCompleted(canvas: Canvas) {
+        drawGame(canvas)
         canvas.drawColor(Color.argb(150, 0, 0, 0))
         canvas.drawText("You Win!", (width / 2).toFloat(), (height / 2).toFloat(), gameCompletedPaint)
     }
 
     private fun restartGame() {
-        gameState = GameState.LEVEL_SELECTION
-        score = 0
+        lives = 5
+        gameState = GameState.PLAYING
         player.reset()
         levelManager.reset()
-        leftPointerId = -1
-        rightPointerId = -1
-        createLevelSelectionButtons()
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        when (gameState) {
-            GameState.LEVEL_SELECTION -> {
-                if (event.action == MotionEvent.ACTION_DOWN) {
-                    val x = event.x.toInt()
-                    val y = event.y.toInt()
+        val action = event.actionMasked
+        if (gameState == GameState.PLAYING) {
+            for (i in 0 until event.pointerCount) {
+                val pointerId = event.getPointerId(i)
+                val x = event.getX(i).toInt()
+                val y = event.getY(i).toInt()
 
-                    for (button in levelSelectionButtons) {
-                        if (button.rect.contains(x, y)) {
-                            levelManager.setLevel(button.levelIndex)
-                            gameState = GameState.PLAYING
-                            return true
+                when (action) {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                        if (jumpButtonRect.contains(x, y)) player.jump()
+                        if (leftButtonRect.contains(x, y)) {
+                            leftPointerId = pointerId
+                            player.moveLeft()
                         }
+                        if (rightButtonRect.contains(x, y)) {
+                            rightPointerId = pointerId
+                            player.moveRight()
+                        }
+                        if (resetButtonRect.contains(x, y)) restartGame()
                     }
-
-                    if (nextButtonRect.contains(x, y)) {
-                        if ((currentPage + 1) * levelsPerPage < levelManager.getLevelCount()) {
-                            currentPage++
-                            createLevelSelectionButtons()
-                        }
-                    }
-
-                    if (prevButtonRect.contains(x, y)) {
-                        if (currentPage > 0) {
-                            currentPage--
-                            createLevelSelectionButtons()
-                        }
-                    }
-                }
-            }
-            GameState.PLAYING -> {
-                val action = event.actionMasked
-                for (i in 0 until event.pointerCount) {
-                    val pointerId = event.getPointerId(i)
-                    val x = event.getX(i).toInt()
-                    val y = event.getY(i).toInt()
-
-                    when (action) {
-                        MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
-                            if (jumpButtonRect.contains(x, y)) player.jump()
-                            if (leftButtonRect.contains(x, y)) {
-                                leftPointerId = pointerId
-                                player.moveLeft()
-                            }
-                            if (rightButtonRect.contains(x, y)) {
-                                rightPointerId = pointerId
-                                player.moveRight()
-                            }
-                        }
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
-                            if (pointerId == leftPointerId) {
-                                leftPointerId = -1
-                                player.stopMoving()
-                            } else if (pointerId == rightPointerId) {
-                                rightPointerId = -1
-                                player.stopMoving()
-                            }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
+                        if (pointerId == leftPointerId) {
+                            leftPointerId = -1
+                            player.stopMoving()
+                        } else if (pointerId == rightPointerId) {
+                            rightPointerId = -1
+                            player.stopMoving()
                         }
                     }
                 }
             }
-            GameState.GAME_OVER, GameState.GAME_COMPLETED -> {
-                if (event.action == MotionEvent.ACTION_DOWN) {
-                    restartGame()
-                }
+        } else {
+            if (action == MotionEvent.ACTION_DOWN) {
+                restartGame()
             }
         }
         return true
     }
+}
+
+private fun Canvas.drawArc(
+    oval: Rect,
+    startAngle: Float,
+    sweepAngle: Float,
+    useCenter: Boolean,
+    paint: Paint
+) {
+        TODO("Not yet implemented")
 }

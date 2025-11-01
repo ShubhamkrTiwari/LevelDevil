@@ -5,9 +5,14 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 
-class Platform(var x: Int, var y: Int, var width: Int, var height: Int) {
+class Door(var x: Int, var y: Int, var width: Int, var height: Int) {
     private val paint = Paint().apply {
-        color = Color.YELLOW
+        color = Color.LTGRAY
+    }
+    private val borderPaint = Paint().apply {
+        color = Color.BLACK
+        style = Paint.Style.STROKE
+        strokeWidth = 4f
     }
 
     val rect: Rect
@@ -15,5 +20,6 @@ class Platform(var x: Int, var y: Int, var width: Int, var height: Int) {
 
     fun draw(canvas: Canvas) {
         canvas.drawRect(rect, paint)
+        canvas.drawRect(rect, borderPaint)
     }
 }
