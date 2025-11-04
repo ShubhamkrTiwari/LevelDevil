@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
+import android.graphics.RectF
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -153,7 +154,10 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback 
         uiPaint.color = Color.WHITE
         uiPaint.strokeWidth = 8f
         uiPaint.style = Paint.Style.STROKE
-        canvas.drawArc(Rect(resetButtonRect.left + 20, resetButtonRect.top + 20, resetButtonRect.right - 20, resetButtonRect.bottom - 20), 0f, 270f, false, uiPaint)
+        canvas.drawArc(RectF((resetButtonRect.left + 20).toFloat(),
+            (resetButtonRect.top + 20).toFloat(),
+            (resetButtonRect.right - 20).toFloat(), (resetButtonRect.bottom - 20).toFloat()
+        ), 0f, 270f, false, uiPaint)
         val resetArrow = Path()
         resetArrow.moveTo(resetButtonRect.right - 20f, resetButtonRect.centerY().toFloat())
         resetArrow.lineTo(resetButtonRect.right - 35f, resetButtonRect.centerY() - 15f)
@@ -165,7 +169,6 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback 
 
         // Lives Counter
         uiPaint.color = Color.BLACK
-        uiPaint.style = Paint.Style.FILL
         val boxSize = 30
         val spacing = 10
         val startX = width / 2f - (5 * (boxSize + spacing)) / 2f
@@ -273,14 +276,4 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback 
         }
         return true
     }
-}
-
-private fun Canvas.drawArc(
-    oval: Rect,
-    startAngle: Float,
-    sweepAngle: Float,
-    useCenter: Boolean,
-    paint: Paint
-) {
-        TODO("Not yet implemented")
 }
